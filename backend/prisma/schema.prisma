@@ -1,9 +1,89 @@
 datasource db {
-  provider  = "postgresql"
-  url       = env("DIRECT_URL")
-  directUrl = env("DIRECT_URL")
+  provider = "postgresql"
 }
 
 generator client {
   provider = "prisma-client-js"
+}
+
+enum Role {
+  USER
+  CHAMA_ADMIN
+}
+
+enum EventStatus {
+  CONFIRMED
+  PENDING_CHAMA_RSVP
+  CANCELLED
+}
+
+enum Channel {
+  APP
+  WHATSAPP
+  GOOGLE_CALENDAR
+}
+
+model User {
+  id            String         @id @default(uuid())
+  phoneNumber   String         @unique
+  email         String         @unique
+  name          String
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  events        Event[]
+  chamaMembers  ChamaMember[]
+  auditLogs     AuditLog[]
+}
+
+model Event {
+  id              String         @id @default(uuid())
+  userId          String
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title           String
+  description     String?
+  location        String?        
+  startTime       DateTime
+  endTime         DateTime
+  status          EventStatus    @default(CONFIRMED)
+  googleEventId   String?        
+  
+  isChamaMeeting  Boolean        @default(false)
+  chamaGroupId    String?
+  chamaGroup      ChamaGroup?    @relation(fields: [chamaGroupId], references: [id])
+  travelAlertSent Boolean        @default(false)
+  
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  auditLogs       AuditLog[]
+}
+
+model ChamaGroup {
+  id          String         @id @default(uuid())
+  name        String
+  description String?
+  createdAt   DateTime       @default(now())
+  members     ChamaMember[]
+  events      Event[]
+}
+
+model ChamaMember {
+  id           String     @id @default(uuid())
+  chamaGroupId String
+  chamaGroup   ChamaGroup @relation(fields: [chamaGroupId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role         Role       @default(USER)
+  hasConfirmed Boolean    @default(false) 
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  eventId   String?
+  event     Event?   @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  action    String   
+  source    Channel  
+  rawPayload String? 
+  createdAt DateTime @default(now())
 }
