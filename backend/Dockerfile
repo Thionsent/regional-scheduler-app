@@ -13,4 +13,4 @@ COPY prisma.config.ts ./
 COPY src ./src
 RUN DIRECT_URL=postgresql://build:build@localhost:5432/build npx prisma generate
 EXPOSE 4000
-CMD ["sh", "-c", "npm run prisma:deploy && npm start"]
+CMD ["npm", "start"]
