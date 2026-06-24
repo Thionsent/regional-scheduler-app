@@ -1,151 +1,36 @@
-import React, { useState } from "react";
-import { Text, View, ScrollView, TouchableOpacity, StatusBar } from "react-native";
+import React, { useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, Alert, ScrollView, StatusBar, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import AuthGate from "../components/AuthGate";
+import CreateEventModal from "../components/CreateEventModal";
+import { api, getAccessToken } from "../lib/api";
+import { restoreSession } from "../lib/session";
 
-// Generates a rolling list of the next 7 days from today
-const getRollingWeek = () => {
-  const days = [];
-  for (let i = 0; i < 7; i++) {
-    const today = new Date();
-    today.setDate(today.getDate() + i);
-    days.push({
-      dayName: today.toLocaleDateString("en-US", { weekday: "short" }), // e.g., Mon, Tue
-      dayNumber: today.getDate(),                                      // e.g., 11, 12
-      fullDate: today.toDateString(),                                  // Match identifier
-    });
-  }
-  return days;
-};
-
-// Mock data structured exactly like your Supabase/Prisma schemas
-const MOCK_EVENTS = [
-  {
-    id: "1",
-    title: "Project Sync: Talomart Stores",
-    time: "09:00 AM - 10:30 AM",
-    location: "Google Meet",
-    isChamaMeeting: false,
-    fullDate: new Date().toDateString(), // Scheduled for today
-  },
-  {
-    id: "2",
-    title: "Chama Monthly Contribution Meeting",
-    time: "04:00 PM - 05:30 PM",
-    location: "Mombasa Road Hub / WhatsApp",
-    isChamaMeeting: true, // Triggers Chama design accent
-    fullDate: new Date().toDateString(), // Scheduled for today
-  },
-  {
-    id: "3",
-    title: "Network Security Audit & Backup",
-    time: "11:00 AM - 01:00 PM",
-    location: "Local Server Environment",
-    isChamaMeeting: false,
-    fullDate: new Date(new Date().setDate(new Date().getDate() + 1)).toDateString(), // Scheduled for tomorrow
-  },
-];
+const dayStart = (value) => { const date = new Date(value); date.setHours(0, 0, 0, 0); return date; };
+const rollingDays = () => Array.from({ length: 7 }, (_, index) => { const date = dayStart(new Date()); date.setDate(date.getDate() + index); return date; });
 
 export default function DashboardScreen() {
-  const weekDays = getRollingWeek();
-  const [selectedDate, setSelectedDate] = useState(weekDays[0].fullDate);
-
-  // Filter events belonging only to the highlighted day
-  const filteredEvents = MOCK_EVENTS.filter(event => event.fullDate === selectedDate);
-
-  return (
-    <View className="flex-1 bg-slate-950 px-4 pt-4">
-      <StatusBar barStyle="light-content" />
-
-      {/* Profile/Greeting Section */}
-      <View className="mb-6 mt-2">
-        <Text className="text-slate-400 text-sm font-medium">Welcome back,</Text>
-        <Text className="text-white text-3xl font-black tracking-tight">Edward 👋</Text>
-      </View>
-
-      {/* Rolling Weekly Grid Header */}
-      <View className="mb-4">
-        <Text className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-3">
-          Weekly Timeline
-        </Text>
-        
-        <View className="flex-row justify-between bg-slate-900 p-2 rounded-2xl border border-slate-800/80">
-          {weekDays.map((day, idx) => {
-            const isSelected = selectedDate === day.fullDate;
-            return (
-              <TouchableOpacity
-                key={idx}
-                onPress={() => setSelectedDate(day.fullDate)}
-                activeOpacity={0.7}
-                // Cleared transition-all and shadow-md to solve the internal navigation context exception
-                className={`items-center justify-center w-11 py-3 rounded-xl ${
-                  isSelected ? "bg-emerald-500" : "bg-transparent"
-                }`}
-                // Safe native style object prevents NativeWind v4 multi-thread state collisions
-                style={isSelected ? {
-                  shadowColor: "#10b981",
-                  shadowOffset: { width: 0, height: 4 },
-                  shadowOpacity: 0.25,
-                  shadowRadius: 5,
-                  elevation: 4, // Clean rendering projection for Android hardware
-                } : null}
-              >
-                <Text className={`text-xs font-bold mb-1 ${isSelected ? "text-slate-950" : "text-slate-500"}`}>
-                  {day.dayName}
-                </Text>
-                <Text className={`text-base font-black ${isSelected ? "text-slate-950" : "text-white"}`}>
-                  {day.dayNumber}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      </View>
-
-      {/* Events Stream Feed */}
-      <Text className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-3 mt-2">
-        Agenda Schedule
-      </Text>
-
-      <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
-        {filteredEvents.length === 0 ? (
-          <View className="items-center justify-center py-12 bg-slate-900/40 rounded-2xl border border-dashed border-slate-800">
-            <Text className="text-slate-500 text-sm font-medium">No events scheduled for this day</Text>
-          </View>
-        ) : (
-          filteredEvents.map((event) => (
-            <View 
-              key={event.id} 
-              className={`p-5 mb-4 rounded-2xl border bg-slate-900 ${
-                event.isChamaMeeting ? "border-emerald-500/30 border-l-4 border-l-emerald-500" : "border-slate-800"
-              }`}
-            >
-              <View className="flex-row justify-between items-start mb-2">
-                <Text className="text-white text-lg font-bold flex-1 pr-2 leading-snug">
-                  {event.title}
-                </Text>
-                {event.isChamaMeeting && (
-                  <View className="bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
-                    <Text className="text-emerald-400 text-[10px] font-bold uppercase tracking-wider">
-                      Chama
-                    </Text>
-                  </View>
-                )}
-              </View>
-
-              <Text className="text-slate-400 text-sm font-semibold mb-1">
-                ⏱️ {event.time}
-              </Text>
-              
-              {event.location && (
-                <Text className="text-slate-500 text-xs font-medium">
-                  📍 {event.location}
-                </Text>
-              )}
-            </View>
-          ))
-        )}
-        {/* Extra padding spacer for bottom scroll visibility */}
-        <View className="h-10" />
-      </ScrollView>
-    </View>
-  );
+  const days = useMemo(rollingDays, []); const [selectedDate, setSelectedDate] = useState(days[0]);
+  const [events, setEvents] = useState([]); const [query, setQuery] = useState(""); const [loading, setLoading] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false); const [user, setUser] = useState(null); const [restoring, setRestoring] = useState(true);
+  useEffect(() => { restoreSession().then(setUser).finally(() => setRestoring(false)); }, []);
+  const loadEvents = async () => {
+    if (!getAccessToken()) return;
+    setLoading(true);
+    try { const next = new Date(selectedDate); next.setDate(next.getDate() + 1); setEvents(await api.events.list({ from: selectedDate.toISOString(), to: next.toISOString(), q: query || undefined })); }
+    catch (error) { Alert.alert("Could not load events", error.message); }
+    finally { setLoading(false); }
+  };
+  useEffect(() => { loadEvents(); }, [selectedDate, user]);
+  const saveEvent = async (input) => { try { await api.events.create(input); await loadEvents(); } catch (error) { Alert.alert("Could not save event", error.message); throw error; } };
+  if (restoring) return <View className="flex-1 items-center justify-center bg-slate-950"><ActivityIndicator color="#34d399" /></View>;
+  if (!user) return <AuthGate onAuthenticated={setUser} />;
+  return <View className="flex-1 bg-slate-50"><StatusBar barStyle="light-content" backgroundColor="#0284c7" />
+    <View className="bg-sky-600 px-5 pt-5 pb-12 rounded-b-[36px]"><Text className="text-sky-100 text-xs font-bold uppercase tracking-widest">{user.name}'s workspace</Text><Text className="text-white text-2xl font-black mt-1">Today, deliberately.</Text><View className="bg-white/15 mt-5 rounded-2xl p-5"><Text className="text-amber-300 text-xs font-black uppercase">{selectedDate.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</Text><Text className="text-white text-4xl font-black mt-2">{events.length}</Text><Text className="text-sky-100 text-xs font-bold uppercase">Scheduled items</Text></View></View>
+    <View className="bg-white mx-4 -mt-6 rounded-2xl p-3 shadow-sm"><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-2">{days.map((day) => { const active = day.getTime() === selectedDate.getTime(); return <TouchableOpacity key={day.toISOString()} onPress={() => setSelectedDate(day)} className={`w-12 p-2 rounded-xl items-center ${active ? "bg-sky-500" : "bg-slate-50"}`}><Text className={`text-[10px] font-bold ${active ? "text-white" : "text-slate-400"}`}>{day.toLocaleDateString(undefined, { weekday: "short" })}</Text><Text className={`font-black ${active ? "text-white" : "text-slate-700"}`}>{day.getDate()}</Text></TouchableOpacity>; })}</ScrollView></View>
+    <View className="mx-4 mt-5 flex-row bg-white rounded-xl border border-slate-200 px-3 items-center"><Ionicons name="search" size={16} color="#94a3b8" /><TextInput value={query} onChangeText={setQuery} onSubmitEditing={loadEvents} placeholder="Search this day" placeholderTextColor="#94a3b8" className="flex-1 p-3 text-slate-800" /></View>
+    <ScrollView className="flex-1 px-4 mt-4">{loading ? <ActivityIndicator color="#0284c7" className="mt-12" /> : events.length ? events.map((event) => <TouchableOpacity key={event.id} onLongPress={() => Alert.alert(event.title, "Delete this event?", [{ text: "Cancel", style: "cancel" }, { text: "Delete", style: "destructive", onPress: async () => { await api.events.remove(event.id); loadEvents(); } }])} className="bg-white border border-slate-100 rounded-2xl p-4 mb-3"><Text className="text-slate-900 text-base font-black">{event.title}</Text><View className="flex-row justify-between mt-3"><Text className="text-slate-500">{new Date(event.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</Text><Text className="text-slate-400" numberOfLines={1}>{event.location || "No location"}</Text></View></TouchableOpacity>) : <View className="mt-12 items-center"><Ionicons name="calendar-outline" size={40} color="#cbd5e1" /><Text className="text-slate-400 mt-3">A clear day. Add something meaningful.</Text></View>}<View className="h-24" /></ScrollView>
+    <TouchableOpacity onPress={() => setModalVisible(true)} className="absolute right-6 bottom-6 h-14 w-14 rounded-full items-center justify-center bg-rose-500"><Ionicons name="add" size={28} color="white" /></TouchableOpacity>
+    <CreateEventModal visible={modalVisible} onClose={() => setModalVisible(false)} onSave={saveEvent} defaultDate={selectedDate.toISOString()} />
+  </View>;
 }

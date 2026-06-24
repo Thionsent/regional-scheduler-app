@@ -1,13 +1,16 @@
-import React from "react";
-import { Text, View } from "react-native";
+import React, { useEffect, useState } from "react";
+import { ActivityIndicator, Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { api, getAccessToken } from "../lib/api";
 
 export default function ChamaFeedScreen() {
-  return (
-    <View className="flex-1 bg-slate-950 p-6">
-      <Text className="text-white text-2xl font-black mb-2">Chama Hub</Text>
-      <Text className="text-slate-400 text-sm">
-        Shared schedules, group meeting notifications, and RSVPs will appear here.
-      </Text>
-    </View>
-  );
+  const [feed, setFeed] = useState(null); const [loading, setLoading] = useState(true);
+  const load = async () => { if (!getAccessToken()) { setLoading(false); return; } setLoading(true); try { setFeed(await api.groups.feed()); } catch (error) { Alert.alert("Could not load Chama Hub", error.message); } finally { setLoading(false); } };
+  useEffect(() => { load(); }, []);
+  const rsvp = async (id, response) => { try { await api.groups.rsvp(id, response); await load(); } catch (error) { Alert.alert("RSVP failed", error.message); } };
+  if (loading) return <View className="flex-1 items-center justify-center bg-slate-50"><ActivityIndicator color="#0284c7" /></View>;
+  if (!getAccessToken()) return <View className="flex-1 bg-slate-50 items-center justify-center p-8"><Ionicons name="lock-closed-outline" size={32} color="#94a3b8" /><Text className="text-slate-500 mt-3 text-center">Sign in on the Dashboard to use Chama Hub.</Text></View>;
+  return <ScrollView className="flex-1 bg-slate-50"><View className="bg-sky-600 px-5 pt-6 pb-10 rounded-b-[36px]"><Text className="text-sky-100 text-xs font-black uppercase tracking-widest">Collective planning</Text><Text className="text-white text-2xl font-black mt-1">Chama Hub</Text><Text className="text-sky-100 mt-2">Shared events, invitations and contributions.</Text></View><View className="px-4 -mt-4">
+    {!!feed?.invitations?.length && <><Text className="text-slate-500 text-xs font-black uppercase tracking-widest mb-2">Pending invitations</Text>{feed.invitations.map((invite) => <View key={invite.id} className="bg-white rounded-2xl border border-amber-200 p-4 mb-3"><Text className="text-amber-600 text-xs font-black">{invite.group.name}</Text><Text className="text-slate-900 text-base font-black mt-1">{invite.event?.title || "Join this group"}</Text><View className="flex-row gap-2 mt-4"><TouchableOpacity onPress={() => rsvp(invite.id, "DECLINED")} className="flex-1 bg-slate-100 p-3 rounded-xl items-center"><Text className="font-bold text-slate-600">Decline</Text></TouchableOpacity><TouchableOpacity onPress={() => rsvp(invite.id, "ACCEPTED")} className="flex-1 bg-emerald-400 p-3 rounded-xl items-center"><Text className="font-black text-slate-950">Accept</Text></TouchableOpacity></View></View>)}</>}
+    <Text className="text-slate-500 text-xs font-black uppercase tracking-widest mt-5 mb-2">Your groups</Text>{feed?.groups?.length ? feed.groups.map((group) => <View key={group.id} className="bg-white rounded-2xl border border-slate-100 p-4 mb-3"><View className="flex-row justify-between"><Text className="text-slate-900 font-black text-base">{group.name}</Text><Text className="text-sky-600 font-bold">{group._count.members} members</Text></View><Text className="text-slate-500 mt-2">KSh {Number(group.currentAmount).toLocaleString()} {group.targetAmount ? `of ${Number(group.targetAmount).toLocaleString()}` : "contributed"}</Text></View>) : <Text className="text-slate-400">No groups yet. Create one through the API until the group creation screen ships.</Text>}<View className="h-12" /></View></ScrollView>;
 }
