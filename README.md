@@ -20,3 +20,5 @@ The architecture, schema, endpoint contract, and deployment plan are in [docs/ar
 The API includes a Dockerfile and `railway.json`. Create separate Railway services for staging and production, connect each to its Git branch, then configure the variables listed in `backend/.env.staging.example` or `backend/.env.production.example`. Use Supabase's transaction pooler URL for `DATABASE_URL` and its direct/session pooler URL for `DIRECT_URL`. Railway runs `prisma migrate deploy` before starting the API and uses `/ready` as its readiness probe.
 
 Do not copy any `.env` file into Railway or Git. Add each secret in Railway's Variables panel and set `CORS_ORIGINS` to the exact deployed web origin(s).
+
+The active staging API is `https://regional-scheduler-app-staging.up.railway.app`. To test it from Expo, copy `client/.env.staging.example` to `client/.env` and restart Expo with `npx expo start --clear`.
